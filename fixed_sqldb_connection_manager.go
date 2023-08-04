@@ -19,8 +19,10 @@ func NewFixedSqlDBConnectionManager(db *sql.DB) *FixedSqlDBConnectionManager {
 	}
 }
 
+const FixedSqlDBConnectionManagerName = "fixed-sql-db-connection-manager"
+
 func (x *FixedSqlDBConnectionManager) Name() string {
-	return "fixed-sql-db-connection-manager"
+	return FixedSqlDBConnectionManagerName
 }
 
 func (x *FixedSqlDBConnectionManager) Take(ctx context.Context) (*sql.DB, error) {
