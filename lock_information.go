@@ -27,8 +27,8 @@ type LockInformation struct {
 	LeaseExpireTime time.Time `json:"lease_expire_time"`
 }
 
-// FromJsonString 从JSON字符串反序列化锁的信息
-func FromJsonString(jsonString string) (*LockInformation, error) {
+// LockInformationFromJsonString 从JSON字符串反序列化锁的信息
+func LockInformationFromJsonString(jsonString string) (*LockInformation, error) {
 	r := &LockInformation{}
 	err := json.Unmarshal([]byte(jsonString), r)
 	if err != nil {
