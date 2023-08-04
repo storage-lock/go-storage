@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-// DsnConnectionManager 从DSN维持数据库连接
+// DsnConnectionManager 从DSN维持数据库连接，用于只有一个DSN的情况下创建连接管理器
 type DsnConnectionManager struct {
 
 	// TODO 2023-8-4 01:39:41 这几个字段单独抽取为一个ConnectionManager
@@ -53,8 +53,10 @@ func NewDsnConnectionManager(driverName, dsn string) *DsnConnectionManager {
 //	}
 //}
 
+const DSNConnectionManagerName = "dsn-connection-manager"
+
 func (x *DsnConnectionManager) Name() string {
-	return "dsn-connection-manager"
+	return DSNConnectionManagerName
 }
 
 // Take 获取到数据库的连接
@@ -71,10 +73,12 @@ func (x *DsnConnectionManager) Take(ctx context.Context) (*sql.DB, error) {
 }
 
 func (x *DsnConnectionManager) Return(ctx context.Context, db *sql.DB) error {
+	// 归还的时候啥也不用做
 	return nil
 }
 
 func (x *DsnConnectionManager) Shutdown(ctx context.Context) error {
+	// 在连接池被关闭的时候需要把当前持有的连接关闭掉
 	if x.err != nil {
 		return x.err
 	}
