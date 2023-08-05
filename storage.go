@@ -3,7 +3,6 @@ package storage
 import (
 	"context"
 	"github.com/golang-infrastructure/go-iterator"
-	"time"
 )
 
 // Version 表示一个锁的版本号，锁在每次被更改状态，比如每次被持有释放的时候都会增加版本号
@@ -59,7 +58,7 @@ type Storage interface {
 	//    error:
 	Get(ctx context.Context, lockId string) (string, error)
 
-	// GetTime 分布式锁的话时间必须使用统一的时间，这个时间推荐是以Storage的时间为准，Storage要能够提供时间查询的功能
+	// TimeProvider 分布式锁的话时间必须使用统一的时间，这个时间推荐是以Storage的时间为准，Storage要能够提供时间查询的功能
 	// 这是因为分布式锁的算法需要根据时间来协调推进，而当时间不准确的时候算法可能会失效从而导致锁失效
 	// TODO 2023-5-15 01:48:19 基于实例的时间在分布式数据库中可能会失效，单实例没问题
 	// TODO 2023-8-3 21:53:35 在文档中用实际例子演示分布式情况下可能会存在的问题
@@ -68,7 +67,7 @@ type Storage interface {
 	// Returns:
 	//     time.Time: 返回Storage的当前时间
 	//     error: 获取时间失败时则返回对应的错误
-	GetTime(ctx context.Context) (time.Time, error)
+	TimeProvider
 
 	// Close 关闭此存储介质，一般在系统退出释放资源的时候调用一下
 	// Params:
