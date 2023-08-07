@@ -80,7 +80,7 @@ type Storage interface {
 	//    error: 如果是版本不匹配，则返回错误 ErrVersionMiss，如果是其它类型的错误，依据情况自行返回
 	UpdateWithVersion(ctx context.Context, lockId string, exceptedVersion, newVersion Version, lockInformation *LockInformation) error
 
-	// InsertWithVersion 尝试将锁的信息插入到存储介质中，返回是否插入成功，底层存储的时候应该将锁的ID作为唯一ID，不能重复存储
+	// CreateWithVersion 尝试将锁的信息插入到存储介质中，返回是否插入成功，底层存储的时候应该将锁的ID作为唯一ID，不能重复存储
 	// 也就是说这个方法仅在锁不存在的时候才能执行成功，其它情况应该插入失败返回对应的错误
 	// Params:
 	//     ctx:
@@ -89,7 +89,7 @@ type Storage interface {
 	//     lockInformation:
 	// Returns:
 	//     error:
-	InsertWithVersion(ctx context.Context, lockId string, version Version, lockInformation *LockInformation) error
+	CreateWithVersion(ctx context.Context, lockId string, version Version, lockInformation *LockInformation) error
 
 	// DeleteWithVersion 如果锁的当前版本是期望的版本，则将其删除
 	// 如果是版本不匹配，则返回错误 ErrVersionMiss，如果是其它类型的错误，依据情况自行返回
