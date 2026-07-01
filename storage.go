@@ -18,6 +18,25 @@ const (
 	//   - UpdateWithVersion：如果版本号不匹配则必须失败（条件更新）
 	//   - DeleteWithVersion：如果版本号不匹配则必须失败（条件删除）
 	// 如果存储不支持此能力，则无法保证锁的互斥性，不能用于生产环境
+	//
+	// ⚠️⚠️ 关键且极易被误判：CAS 必须是【线性一致（linearizable）】的，而不仅仅是
+	// "语法上支持条件写"。也就是说，"检查版本 + 写入"这一步必须是全局串行化的原子操作，
+	// 任意时刻对同一个 lockId 的并发 CAS 只能有一个成功，且成功后对所有客户端立即可见。
+	//
+	// 【最危险的陷阱】很多存储提供的是"副本级/最终一致"的条件写：两个客户端打到不同副本，
+	// 各自本地校验版本都通过、都写入成功，之后才异步收敛——此时互斥性已被破坏，而按本文档
+	// "版本不匹配则失败"的字面描述去声明 CapabilityCAS 看似合规，实则错误。声明此能力前必须
+	// 确认底层是【强一致的条件写】，典型正确配置：
+	//   - 关系型数据库（MySQL/PG/...）：单主 + 唯一索引/事务，天然满足
+	//   - MongoDB：对 lockId 建唯一索引，写走 primary（majority writeConcern），findAndModify 条件更新
+	//   - Cassandra/ScyllaDB：必须用 LWT（INSERT ... IF NOT EXISTS / UPDATE ... IF，SERIAL 一致性），
+	//     普通 QUORUM 写【不满足】
+	//   - DynamoDB：必须用 ConditionExpression 的条件写（其条件写本身是强一致的），
+	//     但普通 GetItem 需强一致读
+	//   - Redis：单实例/单主同步满足；Redis Cluster 或异步副本故障切换【不满足】（即 Redlock 争议点）
+	//   - S3/OSS 等对象存储：需支持强读写一致 + 条件 PUT（If-Match ETag / If-None-Match），
+	//     现代 S3 默认强一致可满足；老式最终一致对象存储【不满足】
+	// 判断准则：能否保证"同一 key 的并发条件写全局只成功一个"。不确定就【不要】声明此能力。
 	CapabilityCAS StorageCapability = "cas"
 
 	// CapabilityReliableTime 表示存储介质能够提供可靠的时间源
