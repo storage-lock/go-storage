@@ -25,7 +25,21 @@ const (
 	//   - GetTime 返回的时间必须单调递增（不能出现时钟回拨）
 	//   - 不同节点的时钟偏差必须远小于锁的 LeaseExpireAfter
 	// 如果存储不支持此能力，则在时钟漂移较大的场景下可能破坏锁的互斥性
+	// ⚠️ 注意：此能力可由"外部注入的 TimeProvider"替代满足，而非必须由 Storage 自身提供。
+	// 例如对象存储（S3/OSS）、纯 HTTP 存储没有服务端时钟，无法自身满足此能力，
+	// 但可通过在创建锁时注入外部 NTP 时间源（go-ntp-time-provider）来满足必要条件。
+	// 详见 NewStorageLockWithOptions 的能力校验逻辑。
 	CapabilityReliableTime StorageCapability = "reliable-time"
+
+	// CapabilityAtomicDelete 表示存储介质支持原子的"条件删除"（DeleteWithVersion）
+	// 这是一个"增强能力"而非"硬性必要条件"：
+	//   - 支持此能力时，释放锁走 DeleteWithVersion 真正删除记录，语义最清晰
+	//   - 不支持此能力时（如对象存储只有"条件 PUT" If-Match ETag，没有"条件 DELETE"），
+	//     释放锁会降级为用 UpdateWithVersion 写入一个"墓碑"标记（LockCount=0、已释放），
+	//     下次获取锁时走 lockExists → lockReleased 分支识别并抢占，互斥性依然由 CAS 保证
+	// 因此，不支持此能力的存储介质仍可接入分布式锁，只是释放路径不同。
+	// 真正不可降级的是 CapabilityCAS——墓碑写入本身就是一次 UpdateWithVersion 的原子 CAS。
+	CapabilityAtomicDelete StorageCapability = "atomic-delete"
 )
 
 // Storage 表示一个存储介质的实现，要实现四个增删改查的方法和一个初始化的方法，以及能够提供Storage的日期，
@@ -44,10 +58,14 @@ const (
 //
 // 2. 可靠的时间源
 //
-// GetTime 返回的时间必须满足：
+// 时间必须满足：
 //   - 单调递增：不能出现时钟回拨，否则可能导致未过期的锁被判为过期
 //   - 节点间一致：所有参与分布式锁的节点看到的时间偏差应远小于 LeaseExpireAfter
 //   - 推荐：使用存储服务器自身的时间（单实例数据库），或 NTP 同步良好的时间源
+//
+// 时间源不必由 Storage 自身提供。若 Storage 没有服务端时钟（对象存储、HTTP 存储），
+// 可在创建锁时通过 options.TimeProvider 注入外部时间源（如 go-ntp-time-provider）。
+// 只要"Storage 声明 CapabilityReliableTime"与"外部注入了 TimeProvider"满足其一即可。
 //
 // # 不满足必要条件的后果
 //
@@ -56,6 +74,7 @@ const (
 // | 不支持 CAS | 互斥性被破坏：多个节点可能同时持有同一把锁 |
 // | 时间源不可靠（时钟回拨） | 互斥性被破坏：锁可能被提前释放，多个节点同时抢占 |
 // | 时间源不可靠（时钟漂移） | 活性受影响：锁可能延迟释放，但互斥性不受影响 |
+// | 不支持 CapabilityAtomicDelete | 无后果，仅释放路径降级为写墓碑标记，互斥性不受影响 |
 type Storage interface {
 
 	// GetName Storage的名称，用于区分不同的Storage的实现
