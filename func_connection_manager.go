@@ -7,6 +7,10 @@ import (
 
 // FuncConnectionProvider 通过一个函数获取连接，这样就不必再单独写一个接口了，不是一个具体的实现，仅仅是为了外部实现简单一些
 // TODO 2023-8-4 01:38:10 单元测试
+//
+// 并发安全约定（漏洞7）：Set 系列方法是 builder 语义，非并发安全。
+// 调用方须在构造期完成所有 Set（链式调用），构造完成、开始并发 Take/Return/Shutdown 后不得再调 Set。
+// 即 Set 与 Take 之间必须存在 happens-before 关系（如构造完成后通过 channel/sync 把实例发布给消费者）。
 type FuncConnectionProvider[Connection any] struct {
 	name         string
 	takeFunc     func(ctx context.Context) (Connection, error)
