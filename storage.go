@@ -59,6 +59,10 @@ const (
 	// 因此，不支持此能力的存储介质仍可接入分布式锁，只是释放路径不同。
 	// 真正不可降级的是 CapabilityCAS——墓碑写入本身就是一次 UpdateWithVersion 的原子 CAS。
 	CapabilityAtomicDelete StorageCapability = "atomic-delete"
+
+	// CapabilityWatch 表示存储介质支持锁状态变更的监听/通知能力。
+	// 这不是锁互斥性的必要条件；不实现时上层可降级为轮询检测。
+	CapabilityWatch StorageCapability = "watch"
 )
 
 // Storage 表示一个存储介质的实现，要实现四个增删改查的方法和一个初始化的方法，以及能够提供Storage的日期，
