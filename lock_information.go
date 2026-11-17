@@ -47,6 +47,9 @@ type LockInformation struct {
 	// 开启公平获取时，这个顺序决定谁能拿到锁：排在前面的写者没退出之前，
 	// 后面的调用方抢占会失败。登记失败等于没排队，调用方拿不到锁。
 	Waiters []LockWaiter `json:"waiters,omitempty"`
+
+	// Extra 保存由调用方附加的锁元数据。该字段是可选的，旧记录省略时视为空。
+	Extra map[string]string `json:"extra,omitempty"`
 }
 
 // LockWaiter 是一个正在等待这把锁的调用方。
@@ -57,6 +60,10 @@ type LockWaiter struct {
 	Mode string `json:"mode"`
 	// Since 是开始等待时的存储时间。
 	Since time.Time `json:"since"`
+	// Until 是这次排队登记的截止时间，与租约使用同一个时间源。
+	// 零值表示旧记录没有截止时间，不能因为缺少该字段就把等待者删掉。
+	// 非零且已经不晚于当前时间的登记视为等待者崩溃，其他实例可以移除。
+	Until time.Time `json:"until,omitempty"`
 }
 
 // ReadDepth 返回 owner 在共享读锁上的重入深度。写锁或未持有时返回 0。

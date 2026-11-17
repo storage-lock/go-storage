@@ -131,6 +131,22 @@ func TestToJsonString_UnicodeCharacters(t *testing.T) {
 	assert.Equal(t, "所有者-日本語", result.OwnerId)
 }
 
+func TestLockInformationExtraRoundTripAndLegacyJSON(t *testing.T) {
+	info := &LockInformation{LockId: "metadata", Extra: map[string]string{"task": "42", "region": "east"}}
+	jsonStr, err := info.ToJsonStringE()
+	assert.NoError(t, err)
+	assert.Contains(t, jsonStr, `"extra":{"region":"east","task":"42"}`)
+
+	restored, err := LockInformationFromJsonString(jsonStr)
+	assert.NoError(t, err)
+	assert.Equal(t, info.Extra, restored.Extra)
+
+	legacy, err := LockInformationFromJsonString(`{"lock_id":"legacy","owner_id":"owner","version":1}`)
+	assert.NoError(t, err)
+	assert.Equal(t, "legacy", legacy.LockId)
+	assert.Nil(t, legacy.Extra)
+}
+
 func TestToJsonString_RoundTrip(t *testing.T) {
 	now := time.Now()
 	original := &LockInformation{

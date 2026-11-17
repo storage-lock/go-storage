@@ -63,6 +63,12 @@ const (
 	// CapabilityWatch 表示存储介质支持锁状态变更的监听/通知能力。
 	// 这不是锁互斥性的必要条件；不实现时上层可降级为轮询检测。
 	CapabilityWatch StorageCapability = "watch"
+
+	// CapabilityAtomicBatch 表示存储能把多个 key 的条件写放进同一次线性一致提交。
+	// 全部条件成立才一起生效，任一条件不成立则一个 key 都不改。
+	// 这是跨 key 全有全无锁的必要条件。单 key CAS 再顺序组合只能给出 best-effort，
+	// 不能靠声明本能力蒙混过去。不实现时，多锁获取必须拒绝，而不是假装原子。
+	CapabilityAtomicBatch StorageCapability = "atomic-batch"
 )
 
 // Storage 表示一个存储介质的实现，要实现四个增删改查的方法和一个初始化的方法，以及能够提供Storage的日期，
@@ -182,4 +188,22 @@ type Storage interface {
 	//     iterator.Iterator[*LockInformation]: 迭代器用来承载当前所有的锁
 	//     error: 如果列出失败，则返回对应类型的错误
 	List(ctx context.Context) (iterator.Iterator[*LockInformation], error)
+}
+
+// CASOp 是一次批次条件写里的单个 key。
+// ExpectedVersion 为 0 表示该 key 必须尚不存在；非 0 表示当前版本必须正好等于它。
+type CASOp struct {
+	LockID          string
+	ExpectedVersion Version
+	NewVersion      Version
+	Information     *LockInformation
+}
+
+// AtomicBatchStorage 能把多个 key 的条件写放进同一次线性一致提交。
+// 全部条件成立才一起生效；任一条件不成立则一个 key 都不改。
+// 只有同时声明 CapabilityAtomicBatch 的实现才能被上层当成跨 key 原子锁的后端。
+// 不实现本接口的存储仍然是合法的单 key 锁后端。
+type AtomicBatchStorage interface {
+	Storage
+	CompareAndSwapBatch(ctx context.Context, ops []CASOp) error
 }
